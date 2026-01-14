@@ -10,7 +10,6 @@ lib/
 
 # Livox SDK2 编译目录
 livox-sdk2-official/build/
-livox-sdk2-official/.git/
 
 # IDE 文件
 .idea/
