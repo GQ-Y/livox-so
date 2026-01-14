@@ -55,7 +55,7 @@ jobs:
         run: |
           cd livox-sdk2-official
           mkdir -p build && cd build
-          cmake .. && make -j${{ matrix.os == 'ubuntu-latest' && '$(nproc)' || '$(sysctl -n hw.ncpu)' }}
+          cmake .. && make -j$(if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then nproc; else sysctl -n hw.ncpu; fi)
           cd ../..
           # Verify SDK library was built
           echo "检查 SDK 编译结果..."
