@@ -1,0 +1,107 @@
+name: Build Multi-Platform
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            lib_ext: .so
+            lib_dir: linux
+          - os: macos-14
+            platform: macos
+            arch: arm64
+            lib_ext: .dylib
+            lib_dir: macos
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-14'
+        run: |
+          brew install cmake
+
+      - name: Install Maven
+        uses: stCarolas/setup-maven@v4
+        with:
+          maven-version: '3.9.5'
+
+      - name: Build Livox SDK2
+        run: |
+          cd livox-sdk2-official
+          mkdir -p build && cd build
+          cmake .. && make -j$(nproc || sysctl -n hw.ncpu)
+          cd ../..
+
+      - name: Build JNI library
+        run: |
+          mkdir -p lib/${{ matrix.lib_dir }}
+          # Copy SDK library to lib directory
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            cp livox-sdk2-official/build/sdk_core/liblivox_lidar_sdk_shared.so lib/${{ matrix.lib_dir }}/
+          else
+            cp livox-sdk2-official/build/sdk_core/liblivox_lidar_sdk_shared.dylib lib/${{ matrix.lib_dir }}/
+          fi
+          
+          # Build JNI
+          cd jni
+          mkdir -p build && cd build
+          cmake .. && make -j$(nproc || sysctl -n hw.ncpu)
+          cd ../..
+          
+          # Move JNI library to lib directory
+          if [ -f "lib/liblivoxjni${{ matrix.lib_ext }}" ]; then
+            mv lib/liblivoxjni${{ matrix.lib_ext }} lib/${{ matrix.lib_dir }}/
+          fi
+
+      - name: Build Java project
+        run: |
+          mvn clean package -DskipTests
+
+      - name: Create artifacts directory
+        run: |
+          mkdir -p artifacts/${{ matrix.platform }}-${{ matrix.arch }}
+          cp -r lib/${{ matrix.lib_dir }} artifacts/${{ matrix.platform }}-${{ matrix.arch }}/lib/
+          cp target/livox-demo-1.0.0.jar artifacts/${{ matrix.platform }}-${{ matrix.arch }}/
+          cp config.json artifacts/${{ matrix.platform }}-${{ matrix.arch }}/
+          cp README.md artifacts/${{ matrix.platform }}-${{ matrix.arch }}/
+
+      - name: Package artifacts
+        run: |
+          cd artifacts/${{ matrix.platform }}-${{ matrix.arch }}
+          zip -r ../livox-demo-${{ matrix.platform }}-${{ matrix.arch }}.zip .
+          cd ../..
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: livox-demo-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/livox-demo-${{ matrix.platform }}-${{ matrix.arch }}.zip
+          retention-days: 90
