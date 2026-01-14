@@ -1,5 +1,26 @@
 cmake_minimum_required(VERSION 3.10)
 
+# macOS specific settings
+if(APPLE)
+    # Get macOS SDK path
+    execute_process(
+        COMMAND xcrun --show-sdk-path
+        OUTPUT_VARIABLE MACOS_SDK_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(MACOS_SDK_PATH)
+        message(STATUS "Found macOS SDK: ${MACOS_SDK_PATH}")
+        set(CMAKE_OSX_SYSROOT ${MACOS_SDK_PATH})
+        # Add C++ standard library include paths
+        include_directories(
+            ${MACOS_SDK_PATH}/usr/include/c++/v1
+            /Library/Developer/CommandLineTools/usr/include/c++/v1
+        )
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${MACOS_SDK_PATH} -stdlib=libc++")
+    endif()
+endif()
+
 set(SDK_LIBRARY_STATIC livox_lidar_sdk_static)
 set(SDK_LIBRARY_SHARED livox_lidar_sdk_shared)
 

@@ -82,7 +82,12 @@ socket_t CreateSocket(uint16_t port, bool nonblock, bool reuse_port, bool is_bro
     if(!multicast_ip.empty()){
       servaddr.sin_addr.s_addr = inet_addr(multicast_ip.c_str());
     } else {
-      servaddr.sin_addr.s_addr = inet_addr(netif.c_str());
+      // macOS: cannot bind to broadcast address 255.255.255.255, use INADDR_ANY instead
+      if (netif == "255.255.255.255") {
+        servaddr.sin_addr.s_addr = INADDR_ANY;
+      } else {
+        servaddr.sin_addr.s_addr = inet_addr(netif.c_str());
+      }
     }
   }
   servaddr.sin_port = htons(port);

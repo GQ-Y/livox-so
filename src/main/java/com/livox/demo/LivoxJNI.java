@@ -1,5 +1,7 @@
 package com.livox.demo;
 
+import java.io.File;
+
 /**
  * Livox SDK JNI 封装类
  */
@@ -7,11 +9,35 @@ public class LivoxJNI {
     
     static {
         try {
-            // 加载动态库
-            System.loadLibrary("livoxjni");
+            // 检测操作系统
+            String osName = System.getProperty("os.name").toLowerCase();
+            String osArch = System.getProperty("os.arch").toLowerCase();
+            
+            // 确定库文件名和路径
+            String libName;
+            String libDir;
+            
+            if (osName.contains("mac") || osName.contains("darwin")) {
+                // macOS
+                libName = "liblivoxjni.dylib";
+                libDir = "lib/macos";
+            } else {
+                // Linux
+                libName = "liblivoxjni.so";
+                libDir = "lib/linux";
+            }
+            
+            // 尝试从项目目录加载
+            File libFile = new File(libDir, libName);
+            if (libFile.exists()) {
+                System.load(libFile.getAbsolutePath());
+            } else {
+                // 回退到系统库路径
+                System.loadLibrary("livoxjni");
+            }
         } catch (UnsatisfiedLinkError e) {
             System.err.println("无法加载 livoxjni 动态库: " + e.getMessage());
-            System.err.println("请确保 liblivoxjni.so 在 java.library.path 中");
+            System.err.println("请确保动态库在 java.library.path 中，或使用 -Djava.library.path 指定路径");
             throw e;
         }
     }
